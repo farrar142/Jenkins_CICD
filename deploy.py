@@ -128,7 +128,7 @@ def get_setting_path():
     setting_path = ""
     for path, dirs, files in os.walk(os.getcwd()):
         for i in files:
-            if i == 'settings.py':
+            if i == 'wsgi.py':
                 setting_path = path
                 break
     osType = get_sys()
@@ -149,21 +149,28 @@ def main():
     path = get_setting_path()
     init = False
     try:
+        print("1.get_Now_Con")
         now_con = Container(get_specific_container("now_con"))
     except:
         init = True
     try:
+        print("2.get_Test_Con_For_Debug")
         shut_con = Container(get_specific_container("test_con"))
         os.system(f"docker rm -f test_con")
         os.system(f"docker rmi -f {shut_con.image_name}")
     except:
         pass
+    print("3.make_Test_Image_Con")
     os.system("docker pull python:3")
     os.system(f"docker build -t python:{cur_time} .")
     os.system(f"docker run -d -p 8001:8001 --name test_con python:{cur_time} gunicorn --bind 0:8001 {path}.wsgi")
+    print("4.get_Test_Con_Info")
     con_info = get_specific_container("test_con")
     print(con_info)
-    test_con = Container(con_info)
+    try:
+        test_con = Container(con_info)
+    except:
+        raise Exception("ImageBuildFailed Please Check tests.py files or Requirements Setting")
     if connection_checker(test_con) == False:
         os.system(f"docker rm -f test_con")
         os.system(f"docker rmi -f python:{cur_time}")
@@ -176,8 +183,7 @@ def main():
         if init == False:
             os.system(f"docker rmi -f {now_con.image_name}")
         #messagr success##
-        os.system("python3 manage.py test")
-        print(" ")
+        print(" ")#
         print("Build Succeed")
 
 if __name__ == "__main__":
