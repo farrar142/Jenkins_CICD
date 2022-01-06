@@ -86,6 +86,11 @@ def get_specific_container(cmd):
     a = get_docker_containers()
     for i in a:
         if i[0] == cmd:
+            print(f"컨테이너이름 : {i[0]}")
+            print(f"이미지이름   : {i[2]}")
+            print(f"내부ip주소   : {i[5]}")
+            print(f"포트주소     : {i[4]}")
+            print(f"현재상태     : {i[3]}")
             return i
     return []
 def get_now():
@@ -104,13 +109,13 @@ def connection_checker(test_con):
     put container instance
     """
     osType = get_sys()
-    print(osType)
+    print(f"현재 os 타입 :{osType}")
     if osType == "Lin":
         myip = test_con.ip
     else:
         myip = socket.gethostbyname(socket.gethostname())
-    print(myip)
-    print(test_con.port)
+    print(f"로컬IP주소   :{myip}")
+    print(f"포트주소     :{test_con.port}")
     server_address = (myip,int(test_con.port))
     fail_counter = 0
     for i in range(10):
@@ -174,7 +179,6 @@ def deploy():
     os.system(f"docker run -d -p {test_port}:{test_port} --name {test_con_name} {cur_image_name} gunicorn --bind 0:{test_port} {path}.wsgi")
     print("5.get_Test_Con_Info")
     con_info = get_specific_container(f"{test_con_name}")
-    print(con_info)
     try:
         test_con = Container(con_info)
     except:
@@ -183,8 +187,7 @@ def deploy():
         os.system(f"docker rm -f {test_con.container_name}")
         os.system(f"docker rmi -f {cur_image_name}")
         raise Exception("Connection Failed")
-    else:
-        ##connection check success
+    else:##connection check success
         os.system(f"docker rm -f {test_con.container_name}")
         if init == False:##첫실행이 아닐시
             os.system(f"docker rm -f {prev_con.container_name}")
@@ -194,6 +197,8 @@ def deploy():
         #messagr success##
         print(" ")#
         print("Build Succeed")
+        print("Container Info")
+        get_specific_container(f"{deploy_con_name}")
 
 def main():
     deploy()
