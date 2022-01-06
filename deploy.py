@@ -4,6 +4,13 @@ import subprocess
 import time
 import socket
 from datetime import datetime
+
+class Container:
+    def __init__(self,con):
+        self.container_name = con[0]
+        self.image_name = con[2]
+        self.ip = con[-1]
+        self.port = con[-2]
 def get_sys():
     """
     get_os_name
@@ -94,6 +101,7 @@ def get_now():
 def connection_checker(test_con):
     """
     check container's network
+    put container instance
     """
     osType = get_sys()
     print(osType)
@@ -137,54 +145,58 @@ def get_setting_path():
     else:
         return setting_path.split("/")[-1]
 
-class Container:
-    def __init__(self,con):
-        self.container_name = con[0]
-        self.image_name = con[2]
-        self.ip = con[-1]
-        self.port = con[-2]
-
-def main():
+def deploy():
     cur_time = get_now()
     path = get_setting_path()
     init = False
+    image_name="python__1"
+    deploy_con_name="python1"
+    test_con_name="test_con"
+    test_port="8001"
+    deploy_port="8000"
+    cur_image_name = f"{image_name}:{cur_time}"
     try:
-        print("1.get_Now_Con")
-        now_con = Container(get_specific_container("now_con"))
+        print("1.get_prev_con")
+        prev_con = Container(get_specific_container(f"{deploy_con_name}"))
     except:
         init = True
     try:
-        print("2.get_Test_Con_For_Debug")
-        shut_con = Container(get_specific_container("test_con"))
-        os.system(f"docker rm -f test_con")
+        print("2.shutdown_cached_container")
+        shut_con = Container(get_specific_container(f"{test_con_name}"))
+        os.system(f"docker rm -f {test_con_name}")
         os.system(f"docker rmi -f {shut_con.image_name}")
     except:
         pass
-    print("3.make_Test_Image_Con")
+    print("3.make_Test_Image")
     os.system("docker pull python:3")
-    os.system(f"docker build -t python:{cur_time} .")
-    os.system(f"docker run -d -p 8001:8001 --name test_con python:{cur_time} gunicorn --bind 0:8001 {path}.wsgi")
-    print("4.get_Test_Con_Info")
-    con_info = get_specific_container("test_con")
+    os.system(f"docker build -t {cur_image_name} .")
+    print("4.make_Test_Con_And_Test")
+    os.system(f"docker run -d -p {test_port}:{test_port} --name {test_con_name} {cur_image_name} gunicorn --bind 0:{test_port} {path}.wsgi")
+    print("5.get_Test_Con_Info")
+    con_info = get_specific_container(f"{test_con_name}")
     print(con_info)
     try:
         test_con = Container(con_info)
     except:
         raise Exception("ImageBuildFailed Please Check tests.py files or Requirements Setting")
     if connection_checker(test_con) == False:
-        os.system(f"docker rm -f test_con")
-        os.system(f"docker rmi -f python:{cur_time}")
-        raise Exception("Connection Error")
+        os.system(f"docker rm -f {test_con.container_name}")
+        os.system(f"docker rmi -f {cur_image_name}")
+        raise Exception("Connection Failed")
     else:
-        os.system(f"docker rm -f test_con")
-        if init == False:
-            os.system(f"docker rm -f now_con")
-        os.system(f"docker run -d -p 8000:8000 --name now_con python:{cur_time} gunicorn --bind 0:8000 {path}.wsgi")
-        if init == False:
-            os.system(f"docker rmi -f {now_con.image_name}")
+        ##connection check success
+        os.system(f"docker rm -f {test_con.container_name}")
+        if init == False:##첫실행이 아닐시
+            os.system(f"docker rm -f {prev_con.container_name}")
+            os.system(f"docker rmi -f {prev_con.image_name}")
+        os.system(f"docker run -d -p {deploy_port}:{deploy_port} --name {deploy_con_name} {cur_image_name} gunicorn --bind 0:{deploy_port} {path}.wsgi")
+        os.system(f"docker exec {deploy_con_name} python3 manage.py migrate")
         #messagr success##
         print(" ")#
         print("Build Succeed")
+
+def main():
+    deploy()
 
 if __name__ == "__main__":
     main()#
