@@ -154,8 +154,8 @@ def deploy():
     cur_time = get_now()
     path = get_setting_path()
     init = False
-    image_name="python__1"
-    deploy_con_name="python1"
+    image_name="python1"
+    deploy_con_name="python__1"
     test_con_name="test_con"
     test_port="8001"
     deploy_port="8000"
