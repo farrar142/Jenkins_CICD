@@ -33,6 +33,7 @@ def deploy():
         shut_con = Container(get_specific_container(f"{test_con_name}"))
         os.system(f"docker rm -f {test_con_name}")
         os.system(f"docker rmi -f {shut_con.image_name}")
+        os.system(f"docker image prune -f")
     except:
         pass
     print("3.make_Test_Image")
@@ -45,7 +46,9 @@ def deploy():
     try:
         test_con = Container(con_info)
     except:
+        os.system(f"docker rm -f {test_con_name}")
         os.system(f"docker rmi -f {cur_image_name}")
+        os.system(f"docker image prune -f")
         raise Exception("ImageBuildFailed Please Check tests.py files or Requirements Setting")
     if connection_checker(test_con) == False:
         os.system(f"docker rm -f {test_con.container_name}")
@@ -56,6 +59,7 @@ def deploy():
         if init == False:##첫실행이 아닐시
             os.system(f"docker rm -f {prev_con.container_name}")
             os.system(f"docker rmi -f {prev_con.image_name}")
+            os.system(f"docker image prune -f")
         os.system(f"docker run -d -p {deploy_port}:{deploy_port} --name {deploy_con_name} {cur_image_name} gunicorn --bind 0:{deploy_port} {path}.wsgi")
         os.system(f"docker exec {deploy_con_name} python3 {execute_file} migrate --settings {deploy_setting_file}")
         #messagr success##
