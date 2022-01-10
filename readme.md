@@ -1,4 +1,4 @@
-#중요 dockerfile을 꼭 확인해주세요
+#중요 deploy.py 의 deploy()에서 requirements변수를 꼭 확인해주세요
 
 일반 유저 권한일시
 sudo yum install git -y && sudo mkdir /home/${USER}/Tutorial && cd /home/${USER}/Tutorial && sudo git clone https://github.com/farrar142/jenkins_tutorial . && sudo yum install python3 -y && sudo python3 py_installer.py && cd /home/${USER}/Tutorial/out_docker && sudo docker-compose up -d
