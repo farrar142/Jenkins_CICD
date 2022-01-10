@@ -171,9 +171,10 @@ def deploy():
     test_port="8001"
     deploy_port="8000"    
     cur_image_name = f"{image_name}:{cur_time}" 
-    execute_file="manage.py"   
+    execute_file="manage.py"
+    deploy_setting_file="base.settings.prod"
+    cur_image_name = f"{image_name}:{cur_time}"    
     revise_dockerfile(execute_file)
-    
     try:
         print("1.get_prev_con")
         prev_con = Container(get_specific_container(f"{deploy_con_name}"))
@@ -208,7 +209,7 @@ def deploy():
             os.system(f"docker rm -f {prev_con.container_name}")
             os.system(f"docker rmi -f {prev_con.image_name}")
         os.system(f"docker run -d -p {deploy_port}:{deploy_port} --name {deploy_con_name} {cur_image_name} gunicorn --bind 0:{deploy_port} {path}.wsgi")
-        os.system(f"docker exec {deploy_con_name} python3 {execute_file} migrate")
+        os.system(f"docker exec {deploy_con_name} python3 {execute_file} migrate --settings {deploy_setting_file}")
         #messagr success##
         print(" ")#
         print("Build Succeed")
