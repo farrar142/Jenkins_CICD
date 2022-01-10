@@ -151,6 +151,11 @@ def get_setting_path():
     else:
         return setting_path.split("/")[-1]
 def revise_dockerfile(execute_file):
+    """
+    dockerfile의 test 를 실행 할 때 사용할 설정 파일을 수정해줍니다.
+    Args:
+        execute_file ([파일이름]])
+    """
     context = f"FROM python:3.10\nENV PYTHONUNBUFFERED 1\nWORKDIR /usr/src/app\nCOPY . .\n#requirements.txt의 경로를 수정해주세요\n#같은 위치에 있다면 requirements.txt\n#다른 폴더에 있다면 폴더이름/텍스트파일.txt 의 형식입니다.\nRUN pip3 install -r requirements.txt\nRUN python3 {execute_file} test"
     f = open("dockerfile",'w',encoding='UTF-8')
     f.write(context)
@@ -159,14 +164,16 @@ def deploy():
     cur_time = get_now()
     path = get_setting_path()
     init = False
+    
     image_name="python1"
     deploy_con_name="python__1"
     test_con_name="test_con"
     test_port="8001"
-    deploy_port="8000"
-    execute_file="manage.py"
-    cur_image_name = f"{image_name}:{cur_time}"    
+    deploy_port="8000"    
+    cur_image_name = f"{image_name}:{cur_time}" 
+    execute_file="manage.py"   
     revise_dockerfile(execute_file)
+    
     try:
         print("1.get_prev_con")
         prev_con = Container(get_specific_container(f"{deploy_con_name}"))
