@@ -7,11 +7,12 @@ from datetime import datetime
 def deploy():
     cur_time = get_now()
     path = get_setting_path()
+    #초기 실행 변수
     init = False
     
+    #꼭 본인의 경로에 맞게 수정해주세요!
     requirements_path = "requirements/prod.txt"
-    
-    
+        
     image_name="python1"
     deploy_con_name="python__1"
     test_con_name="test_con"
