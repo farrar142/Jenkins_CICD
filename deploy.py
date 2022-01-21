@@ -7,18 +7,31 @@ from datetime import datetime
 from pathlib import Path
 
 def deploy():
-    cur_time = get_now()
+    global project_dir,docker_work_dir
+    build_id = os.environ.get('BUILD_NUMBER') or get_now()
     path = get_setting_path()
     #초기 실행 변수
     init = False
+    
+    #젠킨스의 빌드이름을 환경변수로 걊을 받습니다, 없으면 python__1입니다.
+    project_name = os.environ.get("JOB_NAME") or "python__1"
+    
+    #윈도우에서 테스트용 설정입니다.
     if get_sys()=="Win":
         python = "python"
+        project_dir = '.'
     else:
         python = "python3"
+        #젠킨스 빌드가 위치하게 될 곳으로 수정해주세요
+        project_dir = f"/docker_projects/nginx__1/data/site_projects/{project_name}"
     
-    #꼭 본인의 경로에 맞게 수정해주세요!
+    #꼭 본인의 경로에 맞게 수정해주세요!#
     requirements_path = "requirements/prod.txt"
-        
+    #호스트의 절대주소+빌드이름을 받습니다.(도커소켓을 연결해놔서 연동이됨)
+    #도커컨테이너 안의 프로젝트 폴더입니다.
+    docker_work_dir = "/usr/src/app"
+    volume_link = f"{project_dir}:{docker_work_dir}"
+                    
     image_name="python1"
     
     deploy_con_name="python__1"
@@ -27,12 +40,12 @@ def deploy():
     
     test_port="8001"
     deploy_port="8000"     
-    
+    #
     execute_file="manage.py"
     deploy_setting_file=f"{path}.settings.prod"
-    cur_image_name = f"{image_name}:{cur_time}"
+    cur_image_name = f"{image_name}:{build_id}"
     
-    deploydockerfile = "deploy.dockerfile"
+    deploydockerfile = "dockerfile"
     deploylogfile = "deploy_log_file.txt"
     
     make_deploy_logs(deploylogfile)
@@ -55,13 +68,13 @@ def deploy():
     print("2.남아있는 테스트 컨테이너 삭제")
     try:
         shut_con = Container(get_specific_container(f"{test_con_name}"))
-        shut_img_con(test_con_name,shut_con.image_name)
+        shut_img_con(shut_con.container_name,shut_con.image_name)
     except:
         pass
     
     print("3.테스트용 이미지 생성")
     os.system("docker pull python:3.10")
-    result = get_logs(f"docker build -t {cur_image_name} -f {deploydockerfile} .")
+    result = get_logs(f"docker build --force-rm -t {cur_image_name} .")
     fail_checker(result,test_con_name,cur_image_name,deploylogfile,"이미지 빌드 실패 requirements 혹은 test를 확인해주세요")
     
     print("4.make_Test_Con_And_Test")
@@ -76,21 +89,30 @@ def deploy():
         shut_img_con(test_con_name,cur_image_name)
         raise Exception("테스트 컨테이너 실행이 실패했습니다. requirements나 setting을 확인해주세요")
     
-    print("6.컨테이너 네트워크 연결 테스트")
-    if connection_checker(test_con,10) == False:        
-        shut_img_con(test_con.container_name,cur_image_name)
+    # print("6.컨테이너 네트워크 연결 테스트")
+    # if connection_checker(test_con,10) == False:        
+    #     shut_img_con(test_con.container_name,cur_image_name)
         raise Exception("테스트 컨테이너 연결 실패")
     else:##connection check success
         os.system(f"docker rm -f {test_con.container_name}")
         if init == False:##첫실행이 아닐시
             shut_img_con(prev_con.container_name,prev_con.image_name)
-            
+            #
         print("7.배포컨테이너 생성")
-        os.system(f"docker run -d -p {deploy_port}:{deploy_port} --name {deploy_con_name} {cur_image_name} gunicorn --bind 0:{deploy_port} {path}.wsgi")
+        print(f"docker run -d -p {deploy_port}:{deploy_port} --name {deploy_con_name}" +
+                  f" -v {volume_link}"+
+                  f" --restart unless-stopped {cur_image_name}" +
+                  f" gunicorn --bind 0:{deploy_port} {path}.wsgi")
+        os.system(f"docker run -d -p {deploy_port}:{deploy_port} --name {deploy_con_name}" +
+                  f" -v {volume_link}"+
+                  f" --restart unless-stopped"
+                  f" {cur_image_name}" +
+                  f" gunicorn --bind 0:{deploy_port} {path}.wsgi")
         
         print("8.마이그레션")
         os.system(f"docker exec {deploy_con_name} {python} {execute_file} migrate --settings={deploy_setting_file}")
-        os.system(f"docker exec {deploy_con_name} echo yes | {python} {execute_file} collectstatic")
+        os.system(f'docker exec {deploy_con_name} bash -c "echo yes | {python} {execute_file} collectstatic"')
+       
         #messagr success##
         print(" ")#
         print("Build Succeed")
@@ -211,7 +233,7 @@ def connection_checker(test_con,counter):
     osType = get_sys()
     print(f"현재 os 타입 :{osType}")
     if osType == "Lin":
-        myip = test_con.ip
+        myip = '172.17.0.1'
     else:
         myip = socket.gethostbyname(socket.gethostname())
     print(f"네트워크 연결 준비")
@@ -256,14 +278,15 @@ def revise_dockerfile(execute_file,requirements_path,deploydockerfile):
     Args:
         execute_file ([파일이름]])
     """
-    context = f"FROM python:3.10\nENV PYTHONUNBUFFERED 1\nWORKDIR /usr/src/app\nCOPY . .\n#deploy.py에서 requirements_path를 수정해주세요\n#다른 폴더에 있다면 폴더이름/텍스트파일.txt 의 형식입니다.\nRUN pip3 install -r {requirements_path}\nRUN python3 {execute_file} test"
+    global project_dir,docker_work_dir
+    context = f"FROM python:3.10\nENV PYTHONUNBUFFERED 1\nWORKDIR {docker_work_dir}\nCOPY . .\n#deploy.py에서 requirements_path를 수정해주세요\n#다른 폴더에 있다면 폴더이름/텍스트파일.txt 의 형식입니다.\nRUN pip3 install -r {requirements_path}\nRUN pip3 install django\nRUN python3 {execute_file} test"
     f = open(f"{deploydockerfile}",'w',encoding='UTF-8')
     f.write(context)
     f.close()
 def shut_img_con(con,img):
     os.system(f"docker rm -f {con}")
     os.system(f"docker rmi -f {img}")
-    os.system(f"docker image prune -f")
+    #os.system(f"docker image prune -f")#
 def fail_checker(cmd,con,img,deploylogfile,message):
     lines = cmd.split("\n")
     for i in lines:
