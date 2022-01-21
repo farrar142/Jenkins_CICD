@@ -11,6 +11,10 @@ def deploy():
     path = get_setting_path()
     #초기 실행 변수
     init = False
+    if get_sys()=="Win":
+        python = "python"
+    else:
+        python = "python3"
     
     #꼭 본인의 경로에 맞게 수정해주세요!
     requirements_path = "requirements/prod.txt"
@@ -85,7 +89,8 @@ def deploy():
         os.system(f"docker run -d -p {deploy_port}:{deploy_port} --name {deploy_con_name} {cur_image_name} gunicorn --bind 0:{deploy_port} {path}.wsgi")
         
         print("8.마이그레션")
-        os.system(f"docker exec {deploy_con_name} python3 {execute_file} migrate --settings={deploy_setting_file}")
+        os.system(f"docker exec {deploy_con_name} {python} {execute_file} migrate --settings={deploy_setting_file}")
+        os.system(f"docker exec {deploy_con_name} echo yes | {python} {execute_file} collectstatic")
         #messagr success##
         print(" ")#
         print("Build Succeed")
